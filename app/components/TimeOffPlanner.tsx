@@ -254,7 +254,7 @@ export default function TimeOffPlanner({
 
       <div className="planner-summary">
         <CalendarDays size={18} />
-        <div><strong>{items.filter((item) => item.date.startsWith(anchor.slice(0, 7))).length} folgas planejadas</strong><span>Arraste os cartões para trocar o dia da folga.</span></div>
+        <div><strong>{items.filter((item) => item.date.startsWith(anchor.slice(0, 7))).length} folgas planejadas</strong><span>Arraste no computador ou use “Alterar dia” no celular.</span></div>
       </div>
 
       {view === "day" && (
