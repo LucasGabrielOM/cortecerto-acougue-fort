@@ -1,4 +1,5 @@
 import { getD1 } from "../../../db";
+import { env } from "cloudflare:workers";
 
 type BreakItemInput = {
   productId?: number | null;
@@ -28,6 +29,44 @@ const seedItems = [
   [7, seedProducts[6], 0.398, 10.29],
   [8, seedProducts[7], 6.2, 160.35],
 ] as const;
+
+const githubOrigin = "https://lucasgabrielom.github.io";
+
+function responseHeaders(request: Request) {
+  const origin = request.headers.get("origin");
+  return {
+    "Access-Control-Allow-Origin": origin === githubOrigin ? githubOrigin : githubOrigin,
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+function json(request: Request, data: unknown, status = 200) {
+  return Response.json(data, { status, headers: responseHeaders(request) });
+}
+
+function hasManagerAccess(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  if (!authorization.startsWith("Basic ")) return false;
+
+  try {
+    const decoded = atob(authorization.slice(6));
+    const separator = decoded.indexOf(":");
+    const username = decoded.slice(0, separator);
+    const password = decoded.slice(separator + 1);
+    const runtimeEnv = env as unknown as Record<string, string | undefined>;
+    const expectedPassword = runtimeEnv.VANUSA_ACCESS_PASSWORD || "preview-only";
+    return username === "vanusa.alves" && password === expectedPassword;
+  } catch {
+    return false;
+  }
+}
+
+export async function OPTIONS(request: Request) {
+  return new Response(null, { status: 204, headers: responseHeaders(request) });
+}
 
 async function ensureDatabase() {
   const db = getD1();
@@ -67,6 +106,15 @@ async function ensureDatabase() {
       notes TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS user_profiles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      full_name TEXT NOT NULL,
+      role TEXT NOT NULL,
+      store TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`),
     db.prepare("CREATE INDEX IF NOT EXISTS break_reports_date_idx ON break_reports(date)"),
     db.prepare("CREATE INDEX IF NOT EXISTS break_items_report_idx ON break_items(report_id)"),
     db.prepare("CREATE INDEX IF NOT EXISTS time_offs_date_idx ON time_offs(date)"),
@@ -86,7 +134,7 @@ async function ensureDatabase() {
   if ((reportCount?.total ?? 0) === 0) {
     await db.prepare(
       "INSERT OR IGNORE INTO break_reports (id, date, requisition, employee, total_kg, total_cost) VALUES (1, ?, ?, ?, ?, ?)",
-    ).bind("2026-06-25", "28076039", "Fernanda Almeida", 19.966, 640.56).run();
+    ).bind("2026-06-25", "28076039", "Vanusa Alves de Oliveira", 19.966, 640.56).run();
     await db.batch(
       seedItems.map(([productId, productName, quantityKg, cost]) =>
         db.prepare(
@@ -94,6 +142,24 @@ async function ensureDatabase() {
         ).bind(productId, productName, quantityKg, cost),
       ),
     );
+  }
+
+  await db.prepare(
+    "INSERT OR IGNORE INTO user_profiles (full_name, role, store, username) VALUES (?, ?, ?, ?)",
+  ).bind("Vanusa Alves de Oliveira", "Encarregada do açougue", "Fort Atacadista — Barreiros", "vanusa.alves").run();
+
+  const timeOffCount = await db.prepare("SELECT COUNT(*) AS total FROM time_offs").first<{ total: number }>();
+  if ((timeOffCount?.total ?? 0) === 0) {
+    await db.batch([
+      db.prepare("INSERT INTO time_offs (employee, date, type, status, coverage, notes) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind("Carlos Mendes", "2026-07-27", "Semanal", "Confirmada", "Rafael Souza", ""),
+      db.prepare("INSERT INTO time_offs (employee, date, type, status, coverage, notes) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind("Juliana Ferreira", "2026-07-28", "Compensatória", "Confirmada", "Camila Souza", "Retorno na quarta-feira"),
+      db.prepare("INSERT INTO time_offs (employee, date, type, status, coverage, notes) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind("Rafael Souza", "2026-07-30", "Semanal", "Solicitada", "Carlos Mendes", ""),
+      db.prepare("INSERT INTO time_offs (employee, date, type, status, coverage, notes) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind("Patrícia Lima", "2026-08-01", "Semanal", "Solicitada", "Juliana Ferreira", ""),
+    ]);
   }
 }
 
@@ -125,21 +191,25 @@ async function loadState() {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    if (!hasManagerAccess(request)) return json(request, { error: "Acesso não autorizado." }, 401);
     await ensureDatabase();
-    return Response.json(await loadState());
+    return json(request, await loadState());
   } catch (error) {
     const message = error instanceof Error ? error.message : "Não foi possível carregar os dados.";
-    return Response.json({ error: message }, { status: 500 });
+    return json(request, { error: message }, 500);
   }
 }
 
 export async function POST(request: Request) {
   try {
-    await ensureDatabase();
     const body = await request.json() as Record<string, unknown>;
     const action = String(body.action ?? "");
+    if (!hasManagerAccess(request)) return json(request, { error: "Usuário ou senha incorretos." }, 401);
+    if (action === "login") return json(request, { ok: true, user: { name: "Vanusa Alves de Oliveira", role: "Encarregada do açougue" } });
+
+    await ensureDatabase();
     const db = getD1();
 
     if (action === "create_break") {
@@ -157,7 +227,7 @@ export async function POST(request: Request) {
         .filter((item) => item.productName && item.quantityKg > 0);
 
       if (!date || !employee || items.length === 0) {
-        return Response.json({ error: "Preencha data, funcionária e ao menos uma carne com peso." }, { status: 400 });
+        return json(request, { error: "Preencha data, funcionária e ao menos uma carne com peso." }, 400);
       }
 
       const totalKg = items.reduce((sum, item) => sum + item.quantityKg, 0);
@@ -176,7 +246,7 @@ export async function POST(request: Request) {
       );
     } else if (action === "delete_break") {
       const id = Number(body.id);
-      if (!id) return Response.json({ error: "Lançamento inválido." }, { status: 400 });
+      if (!id) return json(request, { error: "Lançamento inválido." }, 400);
       await db.batch([
         db.prepare("DELETE FROM break_items WHERE report_id = ?").bind(id),
         db.prepare("DELETE FROM break_reports WHERE id = ?").bind(id),
@@ -188,7 +258,7 @@ export async function POST(request: Request) {
       const coverage = String(body.coverage ?? "").trim();
       const notes = String(body.notes ?? "").trim();
       if (!employee || !date) {
-        return Response.json({ error: "Preencha funcionária e data da folga." }, { status: 400 });
+        return json(request, { error: "Preencha funcionária e data da folga." }, 400);
       }
       await db.prepare(
         "INSERT INTO time_offs (employee, date, type, status, coverage, notes) VALUES (?, ?, ?, 'Solicitada', ?, ?)",
@@ -197,26 +267,33 @@ export async function POST(request: Request) {
       const id = Number(body.id);
       const status = String(body.status ?? "");
       if (!id || !["Solicitada", "Confirmada", "Realizada"].includes(status)) {
-        return Response.json({ error: "Movimentação inválida." }, { status: 400 });
+        return json(request, { error: "Movimentação inválida." }, 400);
       }
       await db.prepare("UPDATE time_offs SET status = ? WHERE id = ?").bind(status, id).run();
+    } else if (action === "reschedule_timeoff") {
+      const id = Number(body.id);
+      const date = String(body.date ?? "").trim();
+      if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return json(request, { error: "Nova data de folga inválida." }, 400);
+      }
+      await db.prepare("UPDATE time_offs SET date = ? WHERE id = ?").bind(date, id).run();
     } else if (action === "delete_timeoff") {
       const id = Number(body.id);
-      if (!id) return Response.json({ error: "Folga inválida." }, { status: 400 });
+      if (!id) return json(request, { error: "Folga inválida." }, 400);
       await db.prepare("DELETE FROM time_offs WHERE id = ?").bind(id).run();
     } else if (action === "create_product") {
       const name = String(body.name ?? "").trim().toUpperCase();
-      if (!name) return Response.json({ error: "Informe o nome da carne." }, { status: 400 });
+      if (!name) return json(request, { error: "Informe o nome da carne." }, 400);
       await db.prepare(
         "INSERT OR IGNORE INTO products (name, category, active) VALUES (?, 'Bovina', 1)",
       ).bind(name).run();
     } else {
-      return Response.json({ error: "Ação não reconhecida." }, { status: 400 });
+      return json(request, { error: "Ação não reconhecida." }, 400);
     }
 
-    return Response.json(await loadState());
+    return json(request, await loadState());
   } catch (error) {
     const message = error instanceof Error ? error.message : "Não foi possível salvar.";
-    return Response.json({ error: message }, { status: 500 });
+    return json(request, { error: message }, 500);
   }
 }

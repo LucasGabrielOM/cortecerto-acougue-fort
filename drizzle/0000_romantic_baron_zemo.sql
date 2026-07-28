@@ -38,3 +38,15 @@ CREATE TABLE `time_offs` (
 	`notes` text DEFAULT '' NOT NULL,
 	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
+--> statement-breakpoint
+CREATE TABLE `user_profiles` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`full_name` text NOT NULL,
+	`role` text NOT NULL,
+	`store` text NOT NULL,
+	`username` text NOT NULL,
+	`active` integer DEFAULT true NOT NULL,
+	`created_at` text DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `user_profiles_username_unique` ON `user_profiles` (`username`);

@@ -1,6 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { BreakDistributionChart, BreakTrendChart, ProductBars } from "./components/BreakCharts";
+import TimeOffPlanner from "./components/TimeOffPlanner";
+import { supabase } from "./lib/supabase";
 
 type Product = { id: number; name: string; category: string; active: number };
 type BreakItem = {
@@ -34,13 +37,12 @@ type AppData = { products: Product[]; reports: BreakReport[]; timeOffs: TimeOff[
 type Tab = "dashboard" | "quebras" | "analises" | "folgas" | "cadastros";
 type DraftItem = { key: number; productId: number; productName: string; quantityKg: number; cost: number };
 
-const employeeName = "Fernanda Almeida";
+const employeeName = "Vanusa Alves de Oliveira";
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const weight = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
 const dateLabel = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 const weekDay = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
-
 function safeDate(value: string) {
   return new Date(`${value}T12:00:00`);
 }
@@ -63,92 +65,6 @@ function shortProduct(value: string) {
     .replace(" - BANDEJA", "");
 }
 
-function LineChart({ data }: { data: Array<{ label: string; value: number }> }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    const draw = () => {
-      const rect = canvas.getBoundingClientRect();
-      const ratio = window.devicePixelRatio || 1;
-      canvas.width = Math.max(1, rect.width * ratio);
-      canvas.height = Math.max(1, rect.height * ratio);
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      context.clearRect(0, 0, rect.width, rect.height);
-
-      const pad = { top: 18, right: 12, bottom: 32, left: 42 };
-      const width = rect.width - pad.left - pad.right;
-      const height = rect.height - pad.top - pad.bottom;
-      const max = Math.max(1, ...data.map((point) => point.value)) * 1.12;
-
-      context.strokeStyle = "#e5e7eb";
-      context.lineWidth = 1;
-      context.font = "11px Arial";
-      context.fillStyle = "#7a7f87";
-      context.textAlign = "right";
-      for (let i = 0; i <= 4; i++) {
-        const y = pad.top + (height * i) / 4;
-        context.beginPath();
-        context.moveTo(pad.left, y);
-        context.lineTo(rect.width - pad.right, y);
-        context.stroke();
-        context.fillText((max * (1 - i / 4)).toFixed(1), pad.left - 8, y + 4);
-      }
-
-      const points = data.map((point, index) => ({
-        x: pad.left + (index * width) / Math.max(1, data.length - 1),
-        y: pad.top + height - (point.value / max) * height,
-      }));
-      const gradient = context.createLinearGradient(0, pad.top, 0, pad.top + height);
-      gradient.addColorStop(0, "rgba(224, 78, 35, .26)");
-      gradient.addColorStop(1, "rgba(224, 78, 35, 0)");
-      context.beginPath();
-      points.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
-      context.lineTo(points.at(-1)?.x ?? pad.left, pad.top + height);
-      context.lineTo(points[0]?.x ?? pad.left, pad.top + height);
-      context.closePath();
-      context.fillStyle = gradient;
-      context.fill();
-
-      context.beginPath();
-      points.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
-      context.strokeStyle = "#e04e23";
-      context.lineWidth = 3;
-      context.lineJoin = "round";
-      context.stroke();
-
-      points.forEach((point, index) => {
-        if (data[index].value <= 0) return;
-        context.beginPath();
-        context.arc(point.x, point.y, 4, 0, Math.PI * 2);
-        context.fillStyle = "#ffffff";
-        context.fill();
-        context.strokeStyle = "#e04e23";
-        context.lineWidth = 2;
-        context.stroke();
-      });
-
-      context.fillStyle = "#7a7f87";
-      context.textAlign = "center";
-      data.forEach((point, index) => {
-        if (index % Math.ceil(data.length / 7) !== 0 && index !== data.length - 1) return;
-        context.fillText(point.label, points[index].x, rect.height - 9);
-      });
-    };
-
-    draw();
-    const observer = new ResizeObserver(draw);
-    observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [data]);
-
-  return <canvas ref={canvasRef} className="line-canvas" aria-label="Gráfico de quebra por dia" />;
-}
-
 function EmptyState({ title, text }: { title: string; text: string }) {
   return (
     <div className="empty-state">
@@ -161,9 +77,12 @@ function EmptyState({ title, text }: { title: string; text: string }) {
 
 export default function Home() {
   const [data, setData] = useState<AppData | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
+  const [loginDraft, setLoginDraft] = useState({ username: "vanusa.alves", password: "" });
   const [tab, setTab] = useState<Tab>("dashboard");
   const [month, setMonth] = useState("2026-06");
-  const [timeOffMonth, setTimeOffMonth] = useState("2026-07");
+  const [timeOffAnchor, setTimeOffAnchor] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -178,6 +97,7 @@ export default function Home() {
     { key: 1, productId: 0, productName: "", quantityKg: 0, cost: 0 },
   ]);
   const [timeOffDraft, setTimeOffDraft] = useState({
+    employee: "",
     date: new Date().toISOString().slice(0, 10),
     type: "Semanal",
     coverage: "",
@@ -188,9 +108,50 @@ export default function Home() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/data", { cache: "no-store" });
-      const result = await response.json() as AppData & { error?: string };
-      if (!response.ok) throw new Error(result.error || "Não foi possível carregar.");
+      const [productsResult, reportsResult, itemsResult, timeOffsResult] = await Promise.all([
+        supabase.from("products").select("*").eq("active", true).order("name"),
+        supabase.from("break_reports").select("*").order("date", { ascending: false }).order("created_at", { ascending: false }),
+        supabase.from("break_items").select("*").order("id"),
+        supabase.from("time_offs").select("*").order("date").order("employee"),
+      ]);
+      const queryError = productsResult.error || reportsResult.error || itemsResult.error || timeOffsResult.error;
+      if (queryError) throw queryError;
+
+      const items = (itemsResult.data ?? []).map((item) => ({
+        id: item.id,
+        reportId: item.report_id,
+        productId: item.product_id,
+        productName: item.product_name,
+        quantityKg: Number(item.quantity_kg),
+        cost: Number(item.cost),
+      }));
+      const result: AppData = {
+        products: (productsResult.data ?? []).map((product) => ({
+          id: product.id,
+          name: product.name,
+          category: product.category,
+          active: product.active ? 1 : 0,
+        })),
+        reports: (reportsResult.data ?? []).map((report) => ({
+          id: report.id,
+          date: report.date,
+          requisition: report.requisition,
+          employee: report.employee,
+          totalKg: Number(report.total_kg),
+          totalCost: Number(report.total_cost),
+          createdAt: report.created_at,
+          items: items.filter((item) => item.reportId === report.id),
+        })),
+        timeOffs: (timeOffsResult.data ?? []).map((item) => ({
+          id: item.id,
+          employee: item.employee,
+          date: item.date,
+          type: item.type,
+          status: item.status,
+          coverage: item.coverage,
+          notes: item.notes,
+        })),
+      };
       setData(result);
       setError("");
     } catch (caught) {
@@ -201,8 +162,25 @@ export default function Home() {
   };
 
   useEffect(() => {
-    void loadData();
+    void supabase.auth.getSession().then(({ data: sessionData }) => {
+      setAuthenticated(Boolean(sessionData.session));
+      setAuthReady(true);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthenticated(Boolean(session));
+      setAuthReady(true);
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (!authenticated) {
+      return;
+    }
+    const timer = window.setTimeout(() => void loadData(), 0);
+    return () => window.clearTimeout(timer);
+  }, [authReady, authenticated]);
 
   useEffect(() => {
     if (!toast) return;
@@ -213,14 +191,63 @@ export default function Home() {
   const postAction = async (payload: Record<string, unknown>, message: string) => {
     setSaving(true);
     try {
-      const response = await fetch("/api/data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const result = await response.json() as AppData & { error?: string };
-      if (!response.ok) throw new Error(result.error || "Não foi possível salvar.");
-      setData(result);
+      const action = String(payload.action);
+      if (action === "create_break") {
+        const items = payload.items as DraftItem[];
+        const totalKg = items.reduce((sum, item) => sum + Number(item.quantityKg), 0);
+        const totalCost = items.reduce((sum, item) => sum + Number(item.cost), 0);
+        const { data: report, error: reportError } = await supabase
+          .from("break_reports")
+          .insert({
+            date: payload.date,
+            requisition: payload.requisition,
+            employee: payload.employee,
+            total_kg: totalKg,
+            total_cost: totalCost,
+          })
+          .select("id")
+          .single();
+        if (reportError) throw reportError;
+        const { error: itemsError } = await supabase.from("break_items").insert(
+          items.map((item) => ({
+            report_id: report.id,
+            product_id: item.productId,
+            product_name: item.productName,
+            quantity_kg: Number(item.quantityKg),
+            cost: Number(item.cost),
+          })),
+        );
+        if (itemsError) {
+          await supabase.from("break_reports").delete().eq("id", report.id);
+          throw itemsError;
+        }
+      } else if (action === "delete_break") {
+        const { error: actionError } = await supabase.from("break_reports").delete().eq("id", payload.id);
+        if (actionError) throw actionError;
+      } else if (action === "create_timeoff") {
+        const { error: actionError } = await supabase.from("time_offs").insert({
+          employee: payload.employee,
+          date: payload.date,
+          type: payload.type,
+          status: "Solicitada",
+          coverage: payload.coverage,
+          notes: payload.notes,
+        });
+        if (actionError) throw actionError;
+      } else if (action === "move_timeoff") {
+        const { error: actionError } = await supabase.from("time_offs").update({ status: payload.status }).eq("id", payload.id);
+        if (actionError) throw actionError;
+      } else if (action === "reschedule_timeoff") {
+        const { error: actionError } = await supabase.from("time_offs").update({ date: payload.date }).eq("id", payload.id);
+        if (actionError) throw actionError;
+      } else if (action === "delete_timeoff") {
+        const { error: actionError } = await supabase.from("time_offs").delete().eq("id", payload.id);
+        if (actionError) throw actionError;
+      } else if (action === "create_product") {
+        const { error: actionError } = await supabase.from("products").insert({ name: payload.name, category: "Bovina" });
+        if (actionError) throw actionError;
+      }
+      await loadData();
       setToast(message);
       setError("");
       return true;
@@ -273,8 +300,6 @@ export default function Home() {
       monthReports.filter((entry) => entry.date === report.date).reduce((sum, entry) => sum + Number(entry.totalKg), 0),
     ]),
   ).entries()].sort((a, b) => b[1] - a[1])[0];
-  const maxProduct = productSummary[0]?.kg ?? 1;
-  const filteredTimeOffs = (data?.timeOffs ?? []).filter((item) => item.date.startsWith(timeOffMonth));
 
   const addDraftItem = () => {
     setDraftItems((current) => [
@@ -315,13 +340,45 @@ export default function Home() {
     event.preventDefault();
     const success = await postAction({
       action: "create_timeoff",
-      employee: employeeName,
       ...timeOffDraft,
     }, "Folga adicionada ao quadro.");
     if (success) {
       setTimeOffModal(false);
-      setTimeOffMonth(timeOffDraft.date.slice(0, 7));
+      setTimeOffAnchor(timeOffDraft.date);
+      setTimeOffDraft((current) => ({ ...current, employee: "", coverage: "", notes: "" }));
     }
+  };
+
+  const openTimeOffModal = (date = timeOffAnchor) => {
+    setTimeOffDraft((current) => ({ ...current, date }));
+    setTimeOffModal(true);
+  };
+
+  const submitLogin = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const email = loginDraft.username.includes("@")
+        ? loginDraft.username
+        : `${loginDraft.username.trim().toLowerCase()}@cortecerto.app`;
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password: loginDraft.password,
+      });
+      if (loginError) throw new Error("Usuário ou senha incorretos.");
+      setLoginDraft((current) => ({ ...current, password: "" }));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível entrar.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setAuthenticated(false);
+    setData(null);
   };
 
   const submitProduct = async (event: FormEvent) => {
@@ -346,6 +403,42 @@ export default function Home() {
     setNavOpen(false);
   };
 
+  if (!authReady) {
+    return <div className="login-loading"><div className="loader" /><span>Preparando o CorteCerto…</span></div>;
+  }
+
+  if (!authenticated) {
+    return (
+      <main className="login-page">
+        <section className="login-brand-panel">
+          <div className="login-brand"><span>CC</span><strong>CorteCerto</strong></div>
+          <div>
+            <p className="eyebrow">Fort Atacadista • Barreiros</p>
+            <h1>O controle do açougue, em um só lugar.</h1>
+            <p>Quebras diárias, gráficos mensais e escala de folgas organizada para a equipe.</p>
+          </div>
+          <div className="login-feature-grid">
+            <div><strong>Quebras</strong><span>Peso por carne e por período</span></div>
+            <div><strong>Folgas</strong><span>Visão diária, semanal e mensal</span></div>
+          </div>
+        </section>
+        <section className="login-form-panel">
+          <form onSubmit={submitLogin}>
+            <span className="employee-avatar login-avatar">VA</span>
+            <p className="eyebrow">Acesso da encarregada</p>
+            <h2>Olá, Vanusa</h2>
+            <p>Entre para acessar os dados do açougue de Barreiros.</p>
+            {error && <div className="login-error">{error}</div>}
+            <label>Usuário<input required autoComplete="username" value={loginDraft.username} onChange={(event) => setLoginDraft({ ...loginDraft, username: event.target.value })} /></label>
+            <label>Senha<input required type="password" autoComplete="current-password" value={loginDraft.password} onChange={(event) => setLoginDraft({ ...loginDraft, password: event.target.value })} placeholder="Digite sua senha" /></label>
+            <button className="primary" disabled={saving}>{saving ? "Entrando…" : "Entrar no sistema"}</button>
+            <small>Acesso exclusivo da gestão do açougue.</small>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <aside className={`sidebar ${navOpen ? "open" : ""}`}>
@@ -365,8 +458,9 @@ export default function Home() {
           <div><strong>Fort Atacadista</strong><small>Barreiros • Açougue</small></div>
         </div>
         <div className="profile">
-          <span>FA</span>
-          <div><strong>Fernanda</strong><small>Operação do açougue</small></div>
+          <span>VA</span>
+          <div><strong>Vanusa Alves</strong><small>Encarregada do açougue</small></div>
+          <button onClick={logout} title="Sair do sistema">Sair</button>
         </div>
       </aside>
 
@@ -389,7 +483,7 @@ export default function Home() {
               {tab === "dashboard" && (
                 <>
                   <div className="page-heading">
-                    <div><p className="eyebrow">Bom trabalho, Fernanda</p><h1>Visão geral do açougue</h1><p>Acompanhe as quebras sem precisar contar folha por folha.</p></div>
+                    <div><p className="eyebrow">Olá, Vanusa</p><h1>Visão geral do açougue</h1><p>Acompanhe as quebras e a equipe sem precisar contar folha por folha.</p></div>
                     <label className="month-picker">Período
                       <input type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
                     </label>
@@ -427,19 +521,11 @@ export default function Home() {
                   <div className="dashboard-grid">
                     <article className="panel trend-panel">
                       <div className="panel-heading"><div><h2>Quebra por dia</h2><p>{monthName(month)} • em quilogramas</p></div><span className="legend"><i /> Peso total</span></div>
-                      <LineChart data={dailySummary} />
+                      <BreakTrendChart data={dailySummary} />
                     </article>
                     <article className="panel ranking-panel">
                       <div className="panel-heading"><div><h2>Quebra por carne</h2><p>Maiores volumes do mês</p></div><button className="link-button" onClick={() => setTab("analises")}>Ver análise</button></div>
-                      <div className="bar-list">
-                        {productSummary.slice(0, 6).map((item, index) => (
-                          <div className="bar-row" key={item.name}>
-                            <span className="rank">{index + 1}</span>
-                            <div className="bar-info"><div><strong>{shortProduct(item.name)}</strong><span>{weight.format(item.kg)} kg</span></div><div className="bar-track"><i style={{ width: `${(item.kg / maxProduct) * 100}%` }} /></div></div>
-                          </div>
-                        ))}
-                        {!productSummary.length && <EmptyState title="Nenhuma quebra no mês" text="Os produtos aparecerão aqui após o primeiro lançamento." />}
-                      </div>
+                      <BreakDistributionChart data={productSummary.map((item) => ({ name: shortProduct(item.name), kg: item.kg }))} />
                     </article>
                   </div>
 
@@ -515,44 +601,27 @@ export default function Home() {
                       {!productSummary.length && <EmptyState title="Sem dados para analisar" text="Escolha outro mês ou lance uma folha." />}
                     </div>
                   </article>
+                  <article className="panel product-chart-panel">
+                    <div className="panel-heading"><div><h2>Comparação visual por carne</h2><p>Passe o mouse sobre as barras para consultar o peso exato</p></div></div>
+                    <ProductBars data={productSummary.map((item) => ({ name: shortProduct(item.name), kg: item.kg }))} />
+                  </article>
                 </>
               )}
 
               {tab === "folgas" && (
                 <>
                   <div className="page-heading">
-                    <div><p className="eyebrow">Escala visual</p><h1>Quadro de folgas</h1><p>Mova cada folga pelo fluxo até ela ser realizada.</p></div>
-                    <button className="primary" onClick={() => setTimeOffModal(true)}>＋ Nova folga</button>
+                    <div><p className="eyebrow">Escala da equipe</p><h1>Quadro de folgas</h1><p>Veja quem folga hoje, organize a semana e planeje o mês inteiro.</p></div>
                   </div>
-                  <div className="kanban-toolbar">
-                    <label>Exibir mês<input type="month" value={timeOffMonth} onChange={(event) => setTimeOffMonth(event.target.value)} /></label>
-                    <div className="kanban-help"><span>1</span>Solicite <b>→</b><span>2</span>Confirme <b>→</b><span>3</span>Realize</div>
-                  </div>
-                  <div className="kanban-board">
-                    {(["Solicitada", "Confirmada", "Realizada"] as const).map((status, columnIndex) => {
-                      const cards = filteredTimeOffs.filter((item) => item.status === status);
-                      return (
-                        <section className={`kanban-column status-${columnIndex}`} key={status}>
-                          <header><div><i /><h2>{status === "Solicitada" ? "Solicitadas" : status === "Confirmada" ? "Confirmadas" : "Realizadas"}</h2></div><span>{cards.length}</span></header>
-                          <div className="kanban-cards">
-                            {cards.map((item) => (
-                              <article className="timeoff-card" key={item.id}>
-                                <div className="timeoff-date"><strong>{item.date.slice(8, 10)}</strong><span>{monthName(item.date.slice(0, 7)).split(" ")[0].slice(0, 3)}</span></div>
-                                <div className="timeoff-info"><strong>{item.employee}</strong><span>{item.type}</span>{item.coverage && <small>Cobertura: {item.coverage}</small>}</div>
-                                {item.notes && <p>{item.notes}</p>}
-                                <div className="card-controls">
-                                  {columnIndex > 0 && <button aria-label="Voltar etapa" onClick={() => void postAction({ action: "move_timeoff", id: item.id, status: ["Solicitada", "Confirmada"][columnIndex - 1] }, "Folga movimentada.")}>←</button>}
-                                  <button className="delete-card" onClick={() => void postAction({ action: "delete_timeoff", id: item.id }, "Folga excluída.")}>Excluir</button>
-                                  {columnIndex < 2 && <button className="next-card" onClick={() => void postAction({ action: "move_timeoff", id: item.id, status: ["Confirmada", "Realizada"][columnIndex] }, "Folga movimentada.")}>{columnIndex === 0 ? "Confirmar" : "Realizar"} →</button>}
-                                </div>
-                              </article>
-                            ))}
-                            {!cards.length && <div className="kanban-empty">Nenhuma folga aqui</div>}
-                          </div>
-                        </section>
-                      );
-                    })}
-                  </div>
+                  <TimeOffPlanner
+                    items={data?.timeOffs ?? []}
+                    anchor={timeOffAnchor}
+                    onAnchorChange={setTimeOffAnchor}
+                    onAdd={openTimeOffModal}
+                    onMove={(id, status) => void postAction({ action: "move_timeoff", id, status }, "Situação da folga atualizada.")}
+                    onDelete={(id) => void postAction({ action: "delete_timeoff", id }, "Folga excluída.")}
+                    onReschedule={(id, date) => void postAction({ action: "reschedule_timeoff", id, date }, "Folga movida para o novo dia.")}
+                  />
                 </>
               )}
 
@@ -586,7 +655,7 @@ export default function Home() {
             <div className="form-grid three">
               <label>Data da folha<input required type="date" value={breakDate} onChange={(event) => setBreakDate(event.target.value)} /></label>
               <label>Nº da requisição<input value={requisition} onChange={(event) => setRequisition(event.target.value)} placeholder="Ex.: 28076039" /></label>
-              <label>Funcionária<input value={employeeName} readOnly /></label>
+              <label>Funcionário(a)<input value={employeeName} readOnly /></label>
             </div>
             <div className="items-editor">
               <div className="editor-head"><strong>Carnes da folha</strong><span>Informe o peso que aparece em “Quantidade”</span></div>
@@ -612,13 +681,13 @@ export default function Home() {
           <form className="modal" onSubmit={submitTimeOff}>
             <div className="modal-header"><div><span className="eyebrow">Quadro Kanban</span><h2>Solicitar nova folga</h2></div><button type="button" className="close" onClick={() => setTimeOffModal(false)}>×</button></div>
             <div className="form-grid">
-              <label>Funcionária<input value={employeeName} readOnly /></label>
+              <label>Funcionário(a)<input required value={timeOffDraft.employee} onChange={(event) => setTimeOffDraft({ ...timeOffDraft, employee: event.target.value })} placeholder="Nome de quem vai folgar" /></label>
               <label>Data da folga<input required type="date" value={timeOffDraft.date} onChange={(event) => setTimeOffDraft({ ...timeOffDraft, date: event.target.value })} /></label>
               <label>Tipo<select value={timeOffDraft.type} onChange={(event) => setTimeOffDraft({ ...timeOffDraft, type: event.target.value })}><option>Semanal</option><option>Compensatória</option><option>Feriado</option><option>Férias</option></select></label>
               <label>Quem fará a cobertura?<input value={timeOffDraft.coverage} onChange={(event) => setTimeOffDraft({ ...timeOffDraft, coverage: event.target.value })} placeholder="Nome da pessoa" /></label>
               <label className="full">Observação<textarea value={timeOffDraft.notes} onChange={(event) => setTimeOffDraft({ ...timeOffDraft, notes: event.target.value })} placeholder="Informação importante sobre a folga" /></label>
             </div>
-            <div className="modal-actions"><button type="button" className="secondary" onClick={() => setTimeOffModal(false)}>Cancelar</button><button className="primary" disabled={saving}>{saving ? "Salvando…" : "Adicionar em Solicitadas"}</button></div>
+            <div className="modal-actions"><button type="button" className="secondary" onClick={() => setTimeOffModal(false)}>Cancelar</button><button className="primary" disabled={saving}>{saving ? "Salvando…" : "Adicionar à escala"}</button></div>
           </form>
         </div>
       )}
