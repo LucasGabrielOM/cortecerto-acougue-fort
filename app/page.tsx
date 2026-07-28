@@ -108,13 +108,19 @@ export default function Home() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [productsResult, reportsResult, itemsResult, timeOffsResult] = await Promise.all([
-        supabase.from("products").select("*").eq("active", true).order("name"),
-        supabase.from("break_reports").select("*").order("date", { ascending: false }).order("created_at", { ascending: false }),
-        supabase.from("break_items").select("*").order("id"),
-        supabase.from("time_offs").select("*").order("date").order("employee"),
-      ]);
-      const queryError = productsResult.error || reportsResult.error || itemsResult.error || timeOffsResult.error;
+      const queryAll = () => Promise.all([
+          supabase.from("products").select("*").eq("active", true).order("name"),
+          supabase.from("break_reports").select("*").order("date", { ascending: false }).order("created_at", { ascending: false }),
+          supabase.from("break_items").select("*").order("id"),
+          supabase.from("time_offs").select("*").order("date").order("employee"),
+        ]);
+      let [productsResult, reportsResult, itemsResult, timeOffsResult] = await queryAll();
+      let queryError = productsResult.error || reportsResult.error || itemsResult.error || timeOffsResult.error;
+      if (queryError) {
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+        [productsResult, reportsResult, itemsResult, timeOffsResult] = await queryAll();
+        queryError = productsResult.error || reportsResult.error || itemsResult.error || timeOffsResult.error;
+      }
       if (queryError) throw queryError;
 
       const items = (itemsResult.data ?? []).map((item) => ({
