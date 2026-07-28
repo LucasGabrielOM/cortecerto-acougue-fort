@@ -66,10 +66,12 @@ function TimeOffCard({
   item,
   onMove,
   onDelete,
+  onReschedule,
 }: {
   item: PlannerTimeOff;
   onMove: (id: number, status: PlannerTimeOff["status"]) => void;
   onDelete: (id: number) => void;
+  onReschedule: (id: number, date: string) => void;
 }) {
   const nextStatus =
     item.status === "Solicitada" ? "Confirmada" : item.status === "Confirmada" ? "Realizada" : null;
@@ -92,6 +94,16 @@ function TimeOffCard({
       </div>
       <div className="schedule-card-actions">
         <span className={`schedule-status ${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span>
+        <label className="schedule-date-action">
+          <CalendarDays size={13} aria-hidden="true" />
+          <span>Alterar dia</span>
+          <input
+            type="date"
+            value={item.date}
+            aria-label={`Alterar data da folga de ${item.employee}`}
+            onChange={(event) => onReschedule(item.id, event.target.value)}
+          />
+        </label>
         {nextStatus && (
           <button type="button" onClick={() => onMove(item.id, nextStatus)}>
             {nextStatus === "Confirmada" ? "Confirmar" : "Concluir"}
@@ -149,7 +161,7 @@ function DayColumn({
       </header>
       <div className="day-column-cards">
         {items.map((item) => (
-          <TimeOffCard key={item.id} item={item} onMove={onMove} onDelete={onDelete} />
+          <TimeOffCard key={item.id} item={item} onMove={onMove} onDelete={onDelete} onReschedule={onReschedule} />
         ))}
         {!items.length && (
           <button type="button" className="day-empty" onClick={() => onAdd(date)}>

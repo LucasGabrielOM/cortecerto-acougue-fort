@@ -597,6 +597,29 @@ textarea { min-height: 88px; resize: vertical; }
   border: 0; border-radius: 7px; padding: 6px 7px; color: #52616a; background: #edf1f2;
   font-size: 8px; font-weight: 850;
 }
+.schedule-date-action {
+  position: relative;
+  min-height: 26px;
+  border-radius: 7px;
+  padding: 6px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  color: #52616a;
+  background: #edf1f2;
+  font-size: 8px;
+  font-weight: 850;
+}
+.schedule-date-action input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
 .schedule-card-actions .schedule-delete { margin-left: auto; color: #a64d3a; background: transparent; }
 .schedule-status { border-radius: 99px; padding: 5px 7px; font-size: 7px; font-weight: 900; text-transform: uppercase; }
 .schedule-status.solicitada { color: #a36b11; background: #fff3d8; }
@@ -721,15 +744,85 @@ textarea { min-height: 88px; resize: vertical; }
   .login-form-panel form { margin-top: -48px; position: relative; z-index: 2; }
   .view-switch { width: 100%; }
   .view-switch button { min-width: 0; flex: 1; }
-  .planner-add { flex: 1; justify-content: center; }
-  .period-navigation { flex-wrap: wrap; }
-  .period-navigation strong { flex-basis: 100%; margin: 6px 0 0; }
+  .planner-toolbar { padding: 11px; gap: 10px; }
+  .planner-add { width: 100%; flex: 1 0 100%; justify-content: center; }
+  .period-navigation {
+    width: 100%;
+    flex: 1 0 100%;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    gap: 7px;
+  }
+  .period-navigation > button { width: 38px; }
+  .period-navigation > .today-button { width: 100%; grid-column: 2; grid-row: 1; }
+  .period-navigation > button:last-of-type { grid-column: 3; grid-row: 1; }
+  .period-navigation strong {
+    grid-column: 1 / -1;
+    margin: 3px 0 0;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.4;
+  }
+  .planner-summary { align-items: flex-start; padding: 11px 12px; }
+  .planner-summary span { line-height: 1.45; }
+  .week-board { min-width: 0; grid-template-columns: 1fr; gap: 12px; }
+  .planner:has(.week-board) { overflow: visible; padding-bottom: 0; }
+  .compact-day { min-height: 0; }
+  .compact-day > header { min-height: 58px; padding: 10px 12px; }
+  .compact-day .day-column-cards { padding: 10px; }
+  .schedule-card {
+    padding: 12px;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 9px;
+  }
+  .drag-handle { display: none; }
+  .employee-avatar { width: 38px; height: 38px; border-radius: 11px; font-size: 10px; }
+  .schedule-card-main strong {
+    overflow: visible;
+    font-size: 12px;
+    white-space: normal;
+    text-overflow: clip;
+  }
+  .schedule-card-main span, .schedule-card-main small {
+    overflow: visible;
+    font-size: 9px;
+    white-space: normal;
+    text-overflow: clip;
+  }
+  .schedule-card-actions {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .schedule-card-actions button, .schedule-date-action { min-height: 31px; padding: 7px 9px; font-size: 9px; }
+  .schedule-status { padding: 6px 8px; font-size: 8px; }
+  .schedule-card-actions .schedule-delete { min-width: 34px; display: grid; place-items: center; }
   .day-view { grid-template-columns: 1fr; }
   .day-view > aside { order: -1; grid-template-columns: repeat(7, minmax(52px, 1fr)); overflow-x: auto; }
   .day-view > aside > span { grid-column: 1 / -1; }
   .day-view > aside button { min-width: 58px; padding: 8px 6px; display: grid; justify-items: center; gap: 4px; }
   .day-view > aside button > span { display: none; }
   .day-column { min-height: 340px; }
+  .month-board {
+    min-width: 0;
+    grid-template-columns: repeat(7, minmax(40px, 1fr));
+    overflow: hidden;
+  }
+  .planner:has(.month-board) { overflow: visible; }
+  .month-weekday { padding: 8px 2px; font-size: 8px; }
+  .month-day { min-height: 76px; padding: 4px; }
+  .month-date { width: 23px; height: 23px; font-size: 9px; }
+  .month-event {
+    width: 24px;
+    height: 24px;
+    margin: 3px auto 0;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+  }
+  .month-event span { width: 20px; height: 20px; font-size: 7px; }
+  .month-add { top: 3px; right: 3px; width: 21px; height: 21px; opacity: 1; }
+  .month-day small { font-size: 7px; }
   .product-chart-panel { padding-inline: 8px; overflow-x: auto; }
   .product-chart-panel .panel-heading { padding-inline: 13px; }
   .product-bars { min-width: 620px; }

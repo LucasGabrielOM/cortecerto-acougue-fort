@@ -381,11 +381,11 @@ export default function Home() {
     }
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const logout = () => {
     setAuthenticated(false);
     setLoginDraft({ username: "vanusa.alves", password: "" });
     setData(null);
+    void supabase.auth.signOut({ scope: "local" });
   };
 
   const submitProduct = async (event: FormEvent) => {
