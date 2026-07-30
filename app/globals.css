@@ -537,9 +537,9 @@ textarea { min-height: 88px; resize: vertical; }
 .planner-summary strong { font-size: 11px; }
 .planner-summary span { color: #a27668; font-size: 10px; }
 .week-board {
-  min-width: 1080px;
+  min-width: 1250px;
   display: grid;
-  grid-template-columns: repeat(7, minmax(145px, 1fr));
+  grid-template-columns: repeat(7, minmax(170px, 1fr));
   gap: 10px;
 }
 .planner:has(.week-board) { overflow-x: auto; padding-bottom: 8px; }
@@ -573,11 +573,11 @@ textarea { min-height: 88px; resize: vertical; }
 .schedule-card {
   position: relative;
   min-width: 0;
-  padding: 12px 10px;
+  padding: 12px 10px 10px 20px;
   border: 1px solid #dddedb;
   border-radius: 12px;
   display: grid;
-  grid-template-columns: 12px 31px minmax(0, 1fr);
+  grid-template-columns: 31px minmax(0, 1fr);
   gap: 8px;
   background: #fff;
   box-shadow: 0 5px 14px rgba(35,37,38,.055);
@@ -586,33 +586,64 @@ textarea { min-height: 88px; resize: vertical; }
 }
 .schedule-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(35,37,38,.09); }
 .schedule-card:active { cursor: grabbing; }
-.drag-handle { align-self: center; width: 12px; color: #b6b7b4; }
+.drag-handle {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 12px;
+  color: #b6b7b4;
+  transform: translateY(-50%);
+}
 .employee-avatar {
   width: 31px; height: 31px; border-radius: 9px; display: grid; place-items: center;
   color: #a14326; background: #ffeadf; font-size: 9px; font-weight: 900;
 }
 .schedule-card-main { min-width: 0; display: grid; align-content: center; gap: 3px; }
-.schedule-card-main strong { overflow: hidden; font-size: 10px; white-space: nowrap; text-overflow: ellipsis; }
-.schedule-card-main span, .schedule-card-main small { overflow: hidden; color: var(--muted); font-size: 8px; line-height: 1.35; text-overflow: ellipsis; }
+.schedule-card-main strong {
+  overflow: hidden;
+  display: -webkit-box;
+  font-size: 10px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.schedule-card-main span, .schedule-card-main small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+}
 .schedule-card-actions {
-  grid-column: 2 / -1;
+  grid-column: 1 / -1;
   padding-top: 7px;
   border-top: 1px solid #f0f0ee;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
 }
 .schedule-card-actions button {
-  border: 0; border-radius: 7px; padding: 6px 7px; color: #52616a; background: #edf1f2;
-  font-size: 8px; font-weight: 850;
+  min-height: 28px;
+  border: 0; border-radius: 7px; padding: 6px 8px; color: #52616a; background: #edf1f2;
+  font-size: 8px; font-weight: 850; white-space: nowrap;
 }
+.schedule-status { justify-self: start; }
+.schedule-progress-action { grid-column: 2; grid-row: 1; }
 .schedule-date-action {
   position: relative;
+  grid-column: 1;
+  grid-row: 2;
+  width: 100%;
+  min-width: 0;
   min-height: 26px;
   border-radius: 7px;
   padding: 6px 7px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   overflow: hidden;
   color: #52616a;
@@ -629,7 +660,16 @@ textarea { min-height: 88px; resize: vertical; }
   opacity: 0;
   cursor: pointer;
 }
-.schedule-card-actions .schedule-delete { margin-left: auto; color: #a64d3a; background: transparent; }
+.schedule-card-actions .schedule-delete {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 30px;
+  padding-inline: 7px;
+  display: grid;
+  place-items: center;
+  color: #a64d3a;
+  background: #fff3ee;
+}
 .schedule-status { border-radius: 99px; padding: 5px 7px; font-size: 7px; font-weight: 900; text-transform: uppercase; }
 .schedule-status.solicitada { color: #a36b11; background: #fff3d8; }
 .schedule-status.confirmada { color: #246f91; background: #e5f2f8; }
@@ -788,9 +828,11 @@ textarea { min-height: 88px; resize: vertical; }
   .employee-avatar { width: 38px; height: 38px; border-radius: 11px; font-size: 10px; }
   .schedule-card-main strong {
     overflow: visible;
+    display: block;
     font-size: 12px;
     white-space: normal;
     text-overflow: clip;
+    -webkit-line-clamp: initial;
   }
   .schedule-card-main span, .schedule-card-main small {
     overflow: visible;
@@ -800,7 +842,6 @@ textarea { min-height: 88px; resize: vertical; }
   }
   .schedule-card-actions {
     grid-column: 1 / -1;
-    flex-wrap: wrap;
     gap: 7px;
   }
   .schedule-card-actions button, .schedule-date-action { min-height: 31px; padding: 7px 9px; font-size: 9px; }
