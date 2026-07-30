@@ -88,7 +88,7 @@ function TimeOffCard({
       <GripVertical className="drag-handle" aria-hidden="true" />
       <span className="employee-avatar">{initials(item.employee)}</span>
       <div className="schedule-card-main">
-        <strong>{item.employee}</strong>
+        <strong title={item.employee}>{item.employee}</strong>
         <span>{item.type}{item.coverage ? ` • Cobertura: ${item.coverage}` : ""}</span>
         {item.notes && <small>{item.notes}</small>}
       </div>
@@ -105,7 +105,7 @@ function TimeOffCard({
           />
         </label>
         {nextStatus && (
-          <button type="button" onClick={() => onMove(item.id, nextStatus)}>
+          <button className="schedule-progress-action" type="button" onClick={() => onMove(item.id, nextStatus)}>
             {nextStatus === "Confirmada" ? "Confirmar" : "Concluir"}
           </button>
         )}
