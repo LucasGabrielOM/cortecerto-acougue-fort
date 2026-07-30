@@ -36,7 +36,7 @@ type TimeOff = {
 };
 type AppData = { products: Product[]; reports: BreakReport[]; timeOffs: TimeOff[] };
 type Tab = "dashboard" | "quebras" | "analises" | "folgas" | "cadastros";
-type DraftItem = { key: number; productId: number; productCode: string; productName: string; quantityKg: number; cost: number };
+type DraftItem = { id?: number; key: number; productId: number; productCode: string; productName: string; quantityKg: number; cost: number };
 type ProductDraft = { code: string; name: string; category: "Bovina" | "Suína" };
 
 const emptyProductDraft: ProductDraft = { code: "", name: "", category: "Bovina" };
@@ -103,8 +103,10 @@ export default function Home() {
   const [breakModal, setBreakModal] = useState(false);
   const [timeOffModal, setTimeOffModal] = useState(false);
   const [productModal, setProductModal] = useState(false);
+  const [editingBreakId, setEditingBreakId] = useState<number | null>(null);
   const [breakDate, setBreakDate] = useState(new Date().toISOString().slice(0, 10));
   const [requisition, setRequisition] = useState("");
+  const [breakEmployee, setBreakEmployee] = useState(employeeName);
   const [draftItems, setDraftItems] = useState<DraftItem[]>([
     { ...emptyBreakItem(), key: 1 },
   ]);
@@ -243,6 +245,57 @@ export default function Home() {
           await supabase.from("break_reports").delete().eq("id", report.id);
           throw itemsError;
         }
+      } else if (action === "edit_break") {
+        const reportId = Number(payload.id);
+        const items = payload.items as DraftItem[];
+        const totalKg = items.reduce((sum, item) => sum + Number(item.quantityKg), 0);
+        const totalCost = items.reduce((sum, item) => sum + Number(item.cost), 0);
+        const existingItemsResult = await supabase.from("break_items").select("id").eq("report_id", reportId);
+        if (existingItemsResult.error) throw existingItemsResult.error;
+
+        for (const item of items.filter((entry) => entry.id)) {
+          const { error: itemError } = await supabase.from("break_items").update({
+            product_id: item.productId,
+            product_code: item.productCode,
+            product_name: item.productName,
+            quantity_kg: Number(item.quantityKg),
+            cost: Number(item.cost),
+          }).eq("id", item.id).eq("report_id", reportId);
+          if (itemError) throw itemError;
+        }
+
+        const newItems = items.filter((entry) => !entry.id);
+        if (newItems.length) {
+          const { error: insertError } = await supabase.from("break_items").insert(
+            newItems.map((item) => ({
+              report_id: reportId,
+              product_id: item.productId,
+              product_code: item.productCode,
+              product_name: item.productName,
+              quantity_kg: Number(item.quantityKg),
+              cost: Number(item.cost),
+            })),
+          );
+          if (insertError) throw insertError;
+        }
+
+        const savedIds = new Set(items.flatMap((item) => item.id ? [item.id] : []));
+        const removedIds = (existingItemsResult.data ?? [])
+          .map((item) => Number(item.id))
+          .filter((id) => !savedIds.has(id));
+        if (removedIds.length) {
+          const { error: deleteItemsError } = await supabase.from("break_items").delete().in("id", removedIds);
+          if (deleteItemsError) throw deleteItemsError;
+        }
+
+        const { error: reportError } = await supabase.from("break_reports").update({
+          date: payload.date,
+          requisition: payload.requisition,
+          employee: payload.employee,
+          total_kg: totalKg,
+          total_cost: totalCost,
+        }).eq("id", reportId);
+        if (reportError) throw reportError;
       } else if (action === "delete_break") {
         const { error: actionError } = await supabase.from("break_reports").delete().eq("id", payload.id);
         if (actionError) throw actionError;
@@ -360,18 +413,46 @@ export default function Home() {
   const submitBreak = async (event: FormEvent) => {
     event.preventDefault();
     const success = await postAction({
-      action: "create_break",
+      action: editingBreakId ? "edit_break" : "create_break",
+      id: editingBreakId,
       date: breakDate,
       requisition,
-      employee: employeeName,
+      employee: breakEmployee,
       items: draftItems,
-    }, "Quebra registrada e dashboard atualizado.");
+    }, editingBreakId ? "Quebra atualizada e dashboard recalculado." : "Quebra registrada e dashboard atualizado.");
     if (success) {
       setBreakModal(false);
+      setEditingBreakId(null);
       setRequisition("");
+      setBreakEmployee(employeeName);
       setDraftItems([emptyBreakItem()]);
       setMonth(breakDate.slice(0, 7));
     }
+  };
+
+  const openBreakModal = (report?: BreakReport) => {
+    if (report) {
+      setEditingBreakId(report.id);
+      setBreakDate(report.date);
+      setRequisition(report.requisition);
+      setBreakEmployee(report.employee);
+      setDraftItems(report.items.map((item, index) => ({
+        id: item.id,
+        key: Date.now() + index,
+        productId: item.productId ?? data?.products.find((product) => product.code === item.productCode)?.id ?? 0,
+        productCode: item.productCode,
+        productName: item.productName,
+        quantityKg: item.quantityKg,
+        cost: item.cost,
+      })));
+    } else {
+      setEditingBreakId(null);
+      setBreakDate(new Date().toISOString().slice(0, 10));
+      setRequisition("");
+      setBreakEmployee(employeeName);
+      setDraftItems([emptyBreakItem()]);
+    }
+    setBreakModal(true);
   };
 
   const submitTimeOff = async (event: FormEvent) => {
@@ -532,7 +613,7 @@ export default function Home() {
           <div className="mobile-brand">CorteCerto</div>
           <div className="topbar-actions">
             <span className="sync-status"><i /> Dados salvos</span>
-            <button className="primary compact" onClick={() => setBreakModal(true)}>＋ Lançar quebra</button>
+            <button className="primary compact" onClick={() => openBreakModal()}>＋ Lançar quebra</button>
           </div>
         </header>
 
@@ -554,7 +635,7 @@ export default function Home() {
                   <div className="quick-action">
                     <div className="quick-icon">＋</div>
                     <div><strong>Terminou de conferir a folha de hoje?</strong><span>Registre todas as carnes de uma vez. O sistema soma o dia e o mês automaticamente.</span></div>
-                    <button className="primary" onClick={() => setBreakModal(true)}>Registrar folha</button>
+                    <button className="primary" onClick={() => openBreakModal()}>Registrar folha</button>
                   </div>
 
                   <div className="kpi-grid">
@@ -612,7 +693,7 @@ export default function Home() {
                 <>
                   <div className="page-heading">
                     <div><p className="eyebrow">Controle diário</p><h1>Quebras de carnes</h1><p>Uma folha vira um lançamento com todas as carnes separadas.</p></div>
-                    <button className="primary" onClick={() => setBreakModal(true)}>＋ Nova folha</button>
+                    <button className="primary" onClick={() => openBreakModal()}>＋ Nova folha</button>
                   </div>
                   <div className="toolbar">
                     <label>Filtrar por mês<input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label>
@@ -636,7 +717,13 @@ export default function Home() {
                             </div>
                           ))}
                         </div>
-                        <div className="report-actions"><span className="status-pill done">✓ Conferido</span><button className="danger-link" onClick={() => void postAction({ action: "delete_break", id: report.id }, "Lançamento excluído.")}>Excluir</button></div>
+                        <div className="report-actions">
+                          <span className="status-pill done">✓ Conferido</span>
+                          <div className="report-action-buttons">
+                            <button className="edit-link" type="button" onClick={() => openBreakModal(report)}>Editar</button>
+                            <button className="danger-link" type="button" onClick={() => void postAction({ action: "delete_break", id: report.id }, "Lançamento excluído.")}>Excluir</button>
+                          </div>
+                        </div>
                       </article>
                     ))}
                     {!monthReports.length && <EmptyState title="Nenhuma folha lançada" text="Registre a folha do dia e as carnes serão somadas automaticamente." />}
@@ -727,11 +814,11 @@ export default function Home() {
       {breakModal && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setBreakModal(false)}>
           <form className="modal large-modal" onSubmit={submitBreak}>
-            <div className="modal-header"><div><span className="eyebrow">Nova folha</span><h2>Registrar quebra do dia</h2><p>Adicione todas as carnes antes de salvar.</p></div><button type="button" className="close" onClick={() => setBreakModal(false)}>×</button></div>
+            <div className="modal-header"><div><span className="eyebrow">{editingBreakId ? "Corrigir folha" : "Nova folha"}</span><h2>{editingBreakId ? "Editar quebra do dia" : "Registrar quebra do dia"}</h2><p>{editingBreakId ? "Corrija a requisição ou qualquer item lançado." : "Adicione todas as carnes antes de salvar."}</p></div><button type="button" className="close" onClick={() => setBreakModal(false)}>×</button></div>
             <div className="form-grid three">
               <label>Data da folha<input required type="date" value={breakDate} onChange={(event) => setBreakDate(event.target.value)} /></label>
               <label>Nº da requisição<input value={requisition} onChange={(event) => setRequisition(event.target.value)} placeholder="Ex.: 28076039" /></label>
-              <label>Funcionário(a)<input value={employeeName} readOnly /></label>
+              <label>Funcionário(a)<input required value={breakEmployee} onChange={(event) => setBreakEmployee(event.target.value)} /></label>
             </div>
             <div className="items-editor">
               <div className="editor-head"><strong>Carnes da folha</strong><span>Informe o peso que aparece em “Quantidade”</span></div>
@@ -748,7 +835,7 @@ export default function Home() {
               <button type="button" className="add-item" onClick={addDraftItem}>＋ Adicionar outra carne</button>
             </div>
             <div className="modal-summary"><span>Total desta folha</span><strong>{weight.format(draftItems.reduce((sum, item) => sum + Number(item.quantityKg), 0))} kg</strong></div>
-            <div className="modal-actions"><button type="button" className="secondary" onClick={() => setBreakModal(false)}>Cancelar</button><button className="primary" disabled={saving}>{saving ? "Salvando…" : "Salvar folha e atualizar painel"}</button></div>
+            <div className="modal-actions"><button type="button" className="secondary" onClick={() => setBreakModal(false)}>Cancelar</button><button className="primary" disabled={saving}>{saving ? "Salvando…" : editingBreakId ? "Salvar alterações" : "Salvar folha e atualizar painel"}</button></div>
           </form>
         </div>
       )}
