@@ -5,11 +5,12 @@ import { BreakDistributionChart, BreakTrendChart, ProductBars } from "./componen
 import TimeOffPlanner from "./components/TimeOffPlanner";
 import { supabase } from "./lib/supabase";
 
-type Product = { id: number; name: string; category: string; active: number };
+type Product = { id: number; code: string; name: string; category: "Bovina" | "Suína"; active: number };
 type BreakItem = {
   id: number;
   reportId: number;
   productId: number | null;
+  productCode: string;
   productName: string;
   quantityKg: number;
   cost: number;
@@ -35,7 +36,18 @@ type TimeOff = {
 };
 type AppData = { products: Product[]; reports: BreakReport[]; timeOffs: TimeOff[] };
 type Tab = "dashboard" | "quebras" | "analises" | "folgas" | "cadastros";
-type DraftItem = { key: number; productId: number; productName: string; quantityKg: number; cost: number };
+type DraftItem = { key: number; productId: number; productCode: string; productName: string; quantityKg: number; cost: number };
+type ProductDraft = { code: string; name: string; category: "Bovina" | "Suína" };
+
+const emptyProductDraft: ProductDraft = { code: "", name: "", category: "Bovina" };
+const emptyBreakItem = (): DraftItem => ({
+  key: Date.now() + Math.random(),
+  productId: 0,
+  productCode: "",
+  productName: "",
+  quantityKg: 0,
+  cost: 0,
+});
 
 const employeeName = "Vanusa Alves de Oliveira";
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -81,7 +93,7 @@ export default function Home() {
   const [authReady, setAuthReady] = useState(false);
   const [loginDraft, setLoginDraft] = useState({ username: "vanusa.alves", password: "" });
   const [tab, setTab] = useState<Tab>("dashboard");
-  const [month, setMonth] = useState("2026-06");
+  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [timeOffAnchor, setTimeOffAnchor] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -94,7 +106,7 @@ export default function Home() {
   const [breakDate, setBreakDate] = useState(new Date().toISOString().slice(0, 10));
   const [requisition, setRequisition] = useState("");
   const [draftItems, setDraftItems] = useState<DraftItem[]>([
-    { key: 1, productId: 0, productName: "", quantityKg: 0, cost: 0 },
+    { ...emptyBreakItem(), key: 1 },
   ]);
   const [timeOffDraft, setTimeOffDraft] = useState({
     employee: "",
@@ -103,7 +115,8 @@ export default function Home() {
     coverage: "",
     notes: "",
   });
-  const [newProduct, setNewProduct] = useState("");
+  const [productDraft, setProductDraft] = useState<ProductDraft>(emptyProductDraft);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
 
   const loadData = async () => {
     try {
@@ -127,6 +140,7 @@ export default function Home() {
         id: item.id,
         reportId: item.report_id,
         productId: item.product_id,
+        productCode: item.product_code ?? "",
         productName: item.product_name,
         quantityKg: Number(item.quantity_kg),
         cost: Number(item.cost),
@@ -134,6 +148,7 @@ export default function Home() {
       const result: AppData = {
         products: (productsResult.data ?? []).map((product) => ({
           id: product.id,
+          code: product.code ?? "",
           name: product.name,
           category: product.category,
           active: product.active ? 1 : 0,
@@ -218,6 +233,7 @@ export default function Home() {
           items.map((item) => ({
             report_id: report.id,
             product_id: item.productId,
+            product_code: item.productCode,
             product_name: item.productName,
             quantity_kg: Number(item.quantityKg),
             cost: Number(item.cost),
@@ -250,7 +266,21 @@ export default function Home() {
         const { error: actionError } = await supabase.from("time_offs").delete().eq("id", payload.id);
         if (actionError) throw actionError;
       } else if (action === "create_product") {
-        const { error: actionError } = await supabase.from("products").insert({ name: payload.name, category: "Bovina" });
+        const { error: actionError } = await supabase.from("products").insert({
+          code: payload.code,
+          name: payload.name,
+          category: payload.category,
+        });
+        if (actionError) throw actionError;
+      } else if (action === "edit_product") {
+        const { error: actionError } = await supabase.from("products").update({
+          code: payload.code,
+          name: payload.name,
+          category: payload.category,
+        }).eq("id", payload.id);
+        if (actionError) throw actionError;
+      } else if (action === "delete_product") {
+        const { error: actionError } = await supabase.from("products").update({ active: false }).eq("id", payload.id);
         if (actionError) throw actionError;
       }
       await loadData();
@@ -308,10 +338,7 @@ export default function Home() {
   ).entries()].sort((a, b) => b[1] - a[1])[0];
 
   const addDraftItem = () => {
-    setDraftItems((current) => [
-      ...current,
-      { key: Date.now(), productId: 0, productName: "", quantityKg: 0, cost: 0 },
-    ]);
+    setDraftItems((current) => [...current, emptyBreakItem()]);
   };
 
   const updateDraftItem = (key: number, field: keyof DraftItem, value: string | number) => {
@@ -319,7 +346,12 @@ export default function Home() {
       if (item.key !== key) return item;
       if (field === "productId") {
         const product = data?.products.find((entry) => entry.id === Number(value));
-        return { ...item, productId: Number(value), productName: product?.name ?? "" };
+        return {
+          ...item,
+          productId: Number(value),
+          productCode: product?.code ?? "",
+          productName: product?.name ?? "",
+        };
       }
       return { ...item, [field]: value };
     }));
@@ -337,7 +369,7 @@ export default function Home() {
     if (success) {
       setBreakModal(false);
       setRequisition("");
-      setDraftItems([{ key: Date.now(), productId: 0, productName: "", quantityKg: 0, cost: 0 }]);
+      setDraftItems([emptyBreakItem()]);
       setMonth(breakDate.slice(0, 7));
     }
   };
@@ -390,11 +422,34 @@ export default function Home() {
 
   const submitProduct = async (event: FormEvent) => {
     event.preventDefault();
-    const success = await postAction({ action: "create_product", name: newProduct }, "Carne adicionada ao cadastro.");
+    const success = await postAction({
+      action: editingProductId ? "edit_product" : "create_product",
+      id: editingProductId,
+      code: productDraft.code.trim(),
+      name: productDraft.name.trim().toUpperCase(),
+      category: productDraft.category,
+    }, editingProductId ? "Cadastro da carne atualizado." : "Carne adicionada ao cadastro.");
     if (success) {
-      setNewProduct("");
+      setProductDraft(emptyProductDraft);
+      setEditingProductId(null);
       setProductModal(false);
     }
+  };
+
+  const openProductModal = (product?: Product) => {
+    if (product) {
+      setEditingProductId(product.id);
+      setProductDraft({ code: product.code, name: product.name, category: product.category });
+    } else {
+      setEditingProductId(null);
+      setProductDraft(emptyProductDraft);
+    }
+    setProductModal(true);
+  };
+
+  const deleteProduct = async (product: Product) => {
+    if (!window.confirm(`Excluir “${product.name}” do cadastro ativo? Os lançamentos antigos serão preservados.`)) return;
+    await postAction({ action: "delete_product", id: product.id }, "Carne removida do cadastro ativo.");
   };
 
   const navItems: Array<{ id: Tab; icon: string; label: string }> = [
@@ -571,9 +626,14 @@ export default function Home() {
                           <div className="report-total"><strong>{weight.format(report.totalKg)} kg</strong><span>{currency.format(report.totalCost)}</span></div>
                         </div>
                         <div className="item-table">
-                          <div className="item-head"><span>Carne</span><span>Peso</span><span>Custo</span></div>
+                          <div className="item-head"><span>Código</span><span>Carne</span><span>Peso</span><span>Custo</span></div>
                           {report.items.map((item) => (
-                            <div className="item-row" key={item.id}><strong>{item.productName}</strong><span>{weight.format(item.quantityKg)} kg</span><span>{currency.format(item.cost)}</span></div>
+                            <div className="item-row" key={item.id}>
+                              <span className="product-code">{item.productCode || "—"}</span>
+                              <strong>{item.productName}</strong>
+                              <span>{weight.format(item.quantityKg)} kg</span>
+                              <span>{currency.format(item.cost)}</span>
+                            </div>
                           ))}
                         </div>
                         <div className="report-actions"><span className="status-pill done">✓ Conferido</span><button className="danger-link" onClick={() => void postAction({ action: "delete_break", id: report.id }, "Lançamento excluído.")}>Excluir</button></div>
@@ -636,12 +696,21 @@ export default function Home() {
                 <>
                   <div className="page-heading">
                     <div><p className="eyebrow">Lista usada nos lançamentos</p><h1>Cadastro de carnes</h1><p>Adicione os nomes exatamente como aparecem nas folhas.</p></div>
-                    <button className="primary" onClick={() => setProductModal(true)}>＋ Adicionar carne</button>
+                    <button className="primary" onClick={() => openProductModal()}>＋ Adicionar carne</button>
                   </div>
                   <article className="panel products-panel">
-                    <div className="product-head"><span>Carne / produto</span><span>Categoria</span><span>Situação</span></div>
+                    <div className="product-head"><span>Código</span><span>Carne / produto</span><span>Categoria</span><span>Situação</span><span>Ações</span></div>
                     {(data?.products ?? []).map((product) => (
-                      <div className="product-row" key={product.id}><strong>{product.name}</strong><span>{product.category}</span><span className="status-pill done">Ativa</span></div>
+                      <div className="product-row" key={product.id}>
+                        <span className="product-code">{product.code || "—"}</span>
+                        <strong>{product.name}</strong>
+                        <span className={`category-pill ${product.category === "Suína" ? "pork" : ""}`}>{product.category}</span>
+                        <span className="status-pill done">Ativa</span>
+                        <div className="product-actions">
+                          <button type="button" onClick={() => openProductModal(product)}>Editar</button>
+                          <button type="button" className="delete-product" onClick={() => void deleteProduct(product)}>Excluir</button>
+                        </div>
+                      </div>
                     ))}
                   </article>
                   <div className="saas-note"><span>↗</span><div><strong>Estrutura pronta para crescer</strong><p>Os registros já ficam em banco de dados. A próxima evolução pode incluir login por loja, permissões, metas de quebra, comparação entre filiais e relatórios exportáveis.</p></div></div>
@@ -670,6 +739,7 @@ export default function Home() {
                 <div className="draft-row" key={item.key}>
                   <span className="draft-number">{index + 1}</span>
                   <label>Carne<select required value={item.productId} onChange={(event) => updateDraftItem(item.key, "productId", Number(event.target.value))}><option value={0}>Selecione a carne</option>{(data?.products ?? []).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label>
+                  <label>Código<input required inputMode="numeric" value={item.productCode} onChange={(event) => updateDraftItem(item.key, "productCode", event.target.value.replace(/\D/g, ""))} placeholder="Ex.: 727598" /></label>
                   <label>Peso da quebra (kg)<input required min="0.001" step="0.001" type="number" inputMode="decimal" value={item.quantityKg || ""} onChange={(event) => updateDraftItem(item.key, "quantityKg", Number(event.target.value))} placeholder="0,000" /></label>
                   <label>Custo bruto (R$)<input min="0" step="0.01" type="number" inputMode="decimal" value={item.cost || ""} onChange={(event) => updateDraftItem(item.key, "cost", Number(event.target.value))} placeholder="Opcional" /></label>
                   <button type="button" className="remove-item" disabled={draftItems.length === 1} onClick={() => setDraftItems((current) => current.filter((entry) => entry.key !== item.key))}>×</button>
@@ -702,9 +772,13 @@ export default function Home() {
       {productModal && (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setProductModal(false)}>
           <form className="modal small-modal" onSubmit={submitProduct}>
-            <div className="modal-header"><div><span className="eyebrow">Cadastro</span><h2>Adicionar carne</h2><p>Use o mesmo nome que aparece na folha.</p></div><button type="button" className="close" onClick={() => setProductModal(false)}>×</button></div>
-            <label className="standalone-label">Nome da carne<input required autoFocus value={newProduct} onChange={(event) => setNewProduct(event.target.value)} placeholder="Ex.: PATINHO BOVINO KG" /></label>
-            <div className="modal-actions"><button type="button" className="secondary" onClick={() => setProductModal(false)}>Cancelar</button><button className="primary" disabled={saving}>Adicionar carne</button></div>
+            <div className="modal-header"><div><span className="eyebrow">Cadastro</span><h2>{editingProductId ? "Editar carne" : "Adicionar carne"}</h2><p>Use o mesmo código e nome que aparecem na folha.</p></div><button type="button" className="close" onClick={() => setProductModal(false)}>×</button></div>
+            <div className="product-form">
+              <label className="standalone-label">Código da carne<input required autoFocus inputMode="numeric" value={productDraft.code} onChange={(event) => setProductDraft({ ...productDraft, code: event.target.value.replace(/\D/g, "") })} placeholder="Ex.: 727598" /></label>
+              <label className="standalone-label">Nome da carne<input required value={productDraft.name} onChange={(event) => setProductDraft({ ...productDraft, name: event.target.value })} placeholder="Ex.: ACEM BOV.KG C/OSSO" /></label>
+              <label className="standalone-label">Categoria<select value={productDraft.category} onChange={(event) => setProductDraft({ ...productDraft, category: event.target.value as ProductDraft["category"] })}><option value="Bovina">Bovina</option><option value="Suína">Suína</option></select></label>
+            </div>
+            <div className="modal-actions"><button type="button" className="secondary" onClick={() => setProductModal(false)}>Cancelar</button><button className="primary" disabled={saving}>{saving ? "Salvando…" : editingProductId ? "Salvar alterações" : "Adicionar carne"}</button></div>
           </form>
         </div>
       )}
