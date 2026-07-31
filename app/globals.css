@@ -213,6 +213,7 @@ textarea { min-height: 88px; resize: vertical; }
 .item-table { padding: 0 22px; }
 .item-head, .item-row { display: grid; grid-template-columns: 92px minmax(240px, 1fr) 140px 140px; gap: 16px; align-items: center; }
 .item-head { padding: 12px 0 9px; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.item-head span:nth-child(3), .item-head span:nth-child(4) { text-align: right; }
 .item-row { padding: 12px 0; border-top: 1px solid #eff0f0; font-size: 11px; }
 .item-row strong { font-size: 11px; }
 .item-row span:nth-last-child(-n + 2) { text-align: right; }
@@ -231,6 +232,8 @@ textarea { min-height: 88px; resize: vertical; }
 .analysis-table { overflow-x: auto; }
 .analysis-head, .analysis-row { min-width: 850px; display: grid; grid-template-columns: 40px minmax(260px, 1.5fr) 65px 140px 140px 170px; align-items: center; gap: 14px; padding: 13px 22px; }
 .analysis-head { color: var(--muted); background: #f7f7f5; border-block: 1px solid var(--line); font-size: 9px; font-weight: 850; text-transform: uppercase; }
+.analysis-head > span:nth-child(3), .analysis-head > span:nth-child(4), .analysis-head > span:nth-child(5) { text-align: right; }
+.analysis-head > span:nth-child(6) { text-align: left; }
 .analysis-row { border-bottom: 1px solid #eff0f0; font-size: 11px; }
 .analysis-row > span:not(:first-child) { text-align: right; }
 .analysis-row > span:first-child { color: var(--muted); }

@@ -84,9 +84,10 @@ export function BreakTrendChart({
             dataKey="value"
             stroke="url(#breakStroke)"
             strokeWidth={3.5}
+            strokeLinecap="round"
             fill="url(#breakArea)"
             activeDot={{ r: 6, fill: "#ffffff", stroke: "#e2481c", strokeWidth: 3 }}
-            dot={{ r: 2.5, fill: "#ffffff", stroke: "#e2481c", strokeWidth: 2 }}
+            dot={false}
             animationDuration={800}
           />
         </AreaChart>
