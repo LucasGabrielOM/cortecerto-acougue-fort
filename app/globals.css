@@ -327,6 +327,7 @@ textarea { min-height: 88px; resize: vertical; }
 .modal-summary strong { color: var(--orange-dark); font-size: 20px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
 .standalone-label { margin-top: 10px; }
+.reschedule-modal .standalone-label input[type="date"] { margin-top: 8px; min-height: 50px; font-size: 16px; }
 .product-form { display: grid; gap: 6px; }
 .nav-backdrop { display: none; }
 

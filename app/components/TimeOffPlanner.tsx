@@ -80,12 +80,12 @@ function TimeOffCard({
   item,
   onMove,
   onDelete,
-  onReschedule,
+  onRequestReschedule,
 }: {
   item: PlannerTimeOff;
   onMove: (id: number, status: PlannerTimeOff["status"]) => void;
   onDelete: (id: number) => void;
-  onReschedule: (id: number, date: string) => void;
+  onRequestReschedule: (item: PlannerTimeOff) => void;
 }) {
   const nextStatus =
     item.status === "Solicitada" ? "Confirmada" : item.status === "Confirmada" ? "Realizada" : null;
@@ -113,16 +113,10 @@ function TimeOffCard({
       </div>
       <div className="schedule-card-actions">
         <span className={`schedule-status ${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span>
-        <label className="schedule-date-action">
+        <button type="button" className="schedule-date-action" onClick={() => onRequestReschedule(item)}>
           <CalendarDays size={13} aria-hidden="true" />
           <span>Alterar dia</span>
-          <input
-            type="date"
-            value={item.date}
-            aria-label={`Alterar data da folga de ${item.employee}`}
-            onChange={(event) => onReschedule(item.id, event.target.value)}
-          />
-        </label>
+        </button>
         {nextStatus && (
           <button className="schedule-progress-action" type="button" onClick={() => onMove(item.id, nextStatus)}>
             {nextStatus === "Confirmada" ? "Confirmar" : "Concluir"}
@@ -144,6 +138,7 @@ function DayColumn({
   onMove,
   onDelete,
   onReschedule,
+  onRequestReschedule,
 }: {
   date: string;
   items: PlannerTimeOff[];
@@ -152,6 +147,7 @@ function DayColumn({
   onMove: (id: number, status: PlannerTimeOff["status"]) => void;
   onDelete: (id: number) => void;
   onReschedule: (id: number, date: string) => void;
+  onRequestReschedule: (item: PlannerTimeOff) => void;
 }) {
   const parsed = parseDate(date);
   const isToday = date === isoDate(new Date());
@@ -180,7 +176,7 @@ function DayColumn({
       </header>
       <div className="day-column-cards">
         {items.map((item) => (
-          <TimeOffCard key={item.id} item={item} onMove={onMove} onDelete={onDelete} onReschedule={onReschedule} />
+          <TimeOffCard key={item.id} item={item} onMove={onMove} onDelete={onDelete} onRequestReschedule={onRequestReschedule} />
         ))}
         {!items.length && (
           <button type="button" className="day-empty" onClick={() => onAdd(date)}>
@@ -210,6 +206,19 @@ export default function TimeOffPlanner({
   onReschedule: (id: number, date: string) => void;
 }) {
   const [view, setView] = useState<ViewMode>("week");
+  const [rescheduleTarget, setRescheduleTarget] = useState<PlannerTimeOff | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+
+  const openReschedule = (item: PlannerTimeOff) => {
+    setRescheduleTarget(item);
+    setRescheduleDate(item.date);
+  };
+  const confirmReschedule = () => {
+    if (rescheduleTarget && rescheduleDate && rescheduleDate !== rescheduleTarget.date) {
+      onReschedule(rescheduleTarget.id, rescheduleDate);
+    }
+    setRescheduleTarget(null);
+  };
 
   const weekDates = useMemo(() => {
     const start = weekStart(anchor);
@@ -291,6 +300,7 @@ export default function TimeOffPlanner({
             onMove={onMove}
             onDelete={onDelete}
             onReschedule={onReschedule}
+            onRequestReschedule={openReschedule}
           />
           <aside>
             <span>Visão rápida da semana</span>
@@ -316,6 +326,7 @@ export default function TimeOffPlanner({
               onMove={onMove}
               onDelete={onDelete}
               onReschedule={onReschedule}
+              onRequestReschedule={openReschedule}
             />
           ))}
         </div>
@@ -357,6 +368,38 @@ export default function TimeOffPlanner({
               </section>
             );
           })}
+        </div>
+      )}
+
+      {rescheduleTarget && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setRescheduleTarget(null); }}
+        >
+          <div className="modal small-modal reschedule-modal">
+            <div className="modal-header">
+              <div>
+                <span className="eyebrow">Folga de {rescheduleTarget.employee}</span>
+                <h2>Alterar o dia</h2>
+                <p>Escolha a nova data desta folga.</p>
+              </div>
+              <button type="button" className="close" onClick={() => setRescheduleTarget(null)}>×</button>
+            </div>
+            <label className="standalone-label">
+              Nova data da folga
+              <input
+                type="date"
+                autoFocus
+                value={rescheduleDate}
+                onChange={(event) => setRescheduleDate(event.target.value)}
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={() => setRescheduleTarget(null)}>Cancelar</button>
+              <button type="button" className="primary" onClick={confirmReschedule}>Salvar novo dia</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
