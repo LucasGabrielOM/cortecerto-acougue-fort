@@ -62,6 +62,20 @@ function statusLabel(status: PlannerTimeOff["status"]) {
   return "Realizada";
 }
 
+type TurnoKey = "open" | "mid" | "close" | "";
+function turnoOf(item: PlannerTimeOff): TurnoKey {
+  const text = `${item.notes ?? ""} ${item.type ?? ""}`.toLowerCase();
+  if (text.includes("abertura")) return "open";
+  if (text.includes("intermedi")) return "mid";
+  if (text.includes("fecha")) return "close";
+  return "";
+}
+const turnoLabels: Record<Exclude<TurnoKey, "">, string> = {
+  open: "☀ Abertura",
+  mid: "◑ Intermediário",
+  close: "☾ Fechamento",
+};
+
 function TimeOffCard({
   item,
   onMove,
@@ -75,10 +89,13 @@ function TimeOffCard({
 }) {
   const nextStatus =
     item.status === "Solicitada" ? "Confirmada" : item.status === "Confirmada" ? "Realizada" : null;
+  const turno = turnoOf(item);
+  const showNote = item.notes && !/turno/i.test(item.notes);
+  const isLead = /vanusa/i.test(item.employee);
 
   return (
     <article
-      className="schedule-card"
+      className={`schedule-card${turno ? ` turno-${turno}` : ""}`}
       draggable
       onDragStart={(event) => {
         event.dataTransfer.setData("text/timeoff-id", String(item.id));
@@ -86,11 +103,13 @@ function TimeOffCard({
       }}
     >
       <GripVertical className="drag-handle" aria-hidden="true" />
-      <span className="employee-avatar">{initials(item.employee)}</span>
+      <span className={`employee-avatar${turno ? ` turno-${turno}` : ""}`}>{initials(item.employee)}</span>
       <div className="schedule-card-main">
         <strong title={item.employee}>{item.employee}</strong>
         <span>{item.type}{item.coverage ? ` • Cobertura: ${item.coverage}` : ""}</span>
-        {item.notes && <small>{item.notes}</small>}
+        {turno && <span className={`turno-chip turno-${turno}`}>{turnoLabels[turno]}</span>}
+        {isLead && <span className="lead-badge">★ Encarregada</span>}
+        {showNote && <small>{item.notes}</small>}
       </div>
       <div className="schedule-card-actions">
         <span className={`schedule-status ${item.status.toLowerCase()}`}>{statusLabel(item.status)}</span>
@@ -257,6 +276,12 @@ export default function TimeOffPlanner({
         <div><strong>{items.filter((item) => item.date.startsWith(anchor.slice(0, 7))).length} folgas planejadas</strong><span>Arraste no computador ou use “Alterar dia” no celular.</span></div>
       </div>
 
+      <div className="turno-legend" aria-label="Cores por turno">
+        <span className="turno-open"><i />☀ Abertura</span>
+        <span className="turno-mid"><i />◑ Intermediário</span>
+        <span className="turno-close"><i />☾ Fechamento</span>
+      </div>
+
       {view === "day" && (
         <div className="day-view">
           <DayColumn
@@ -318,7 +343,7 @@ export default function TimeOffPlanner({
                   {dayItems.slice(0, 3).map((item) => (
                     <button
                       key={item.id}
-                      className={`month-event ${item.status.toLowerCase()}`}
+                      className={`month-event${turnoOf(item) ? ` turno-${turnoOf(item)}` : ""} ${item.status.toLowerCase()}`}
                       draggable
                       onDragStart={(event) => event.dataTransfer.setData("text/timeoff-id", String(item.id))}
                       onClick={() => { onAnchorChange(date); setView("day"); }}

@@ -1,22 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #242628;
-  --muted: #71767d;
-  --line: #e6e7e9;
+  color-scheme: light;
+  --ink: #241f1b;
+  --muted: #7b7168;
+  --line: #ece4d9;
   --paper: #ffffff;
-  --canvas: #f5f5f3;
-  --orange: #e04e23;
-  --orange-dark: #bd3915;
-  --orange-soft: #fff0ea;
-  --green: #24835c;
-  --green-soft: #e8f5ef;
+  --canvas: #f6f1ea;
+  --orange: #e2481c;
+  --orange-dark: #b7360f;
+  --orange-soft: #fdeee6;
+  --green: #1f7f57;
+  --green-soft: #e7f4ee;
   --blue: #2c6e9b;
   --blue-soft: #eaf3f8;
-  --yellow: #c88714;
-  --yellow-soft: #fff5dd;
-  --sidebar: #222426;
-  --shadow: 0 12px 32px rgba(35, 37, 38, 0.08);
+  --yellow: #b9800f;
+  --yellow-soft: #fdf2d8;
+  --sidebar: #241f1b;
+  --shadow: 0 14px 34px rgba(60, 40, 24, 0.10);
+  /* Turnos — sinal de cor por escala (nascer/meio/pôr do dia) */
+  --abertura: #b8790a; --abertura-soft: #fbeecd;
+  --intermediario: #0e8c74; --intermediario-soft: #d7efe8;
+  --fechamento: #3d53a8; --fechamento-soft: #e6e9f6;
 }
 
 * { box-sizing: border-box; }
@@ -25,8 +30,10 @@ body {
   margin: 0;
   background: var(--canvas);
   color: var(--ink);
-  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  background-image: radial-gradient(circle at 100% -5%, rgba(226, 72, 28, .05), transparent 34%);
 }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
@@ -588,6 +595,30 @@ textarea { min-height: 88px; resize: vertical; }
 }
 .schedule-card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(35,37,38,.09); }
 .schedule-card:active { cursor: grabbing; }
+.schedule-card::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  border-radius: 12px 0 0 12px; background: #d9d5cd;
+}
+.schedule-card.turno-open::before { background: var(--abertura); }
+.schedule-card.turno-mid::before { background: var(--intermediario); }
+.schedule-card.turno-close::before { background: var(--fechamento); }
+.employee-avatar.turno-open { color: #fff; background: var(--abertura); }
+.employee-avatar.turno-mid { color: #fff; background: var(--intermediario); }
+.employee-avatar.turno-close { color: #fff; background: var(--fechamento); }
+.turno-chip {
+  width: fit-content; margin-top: 2px; padding: 3px 7px; border-radius: 99px;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 8px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase;
+}
+.turno-chip.turno-open { color: var(--abertura); background: var(--abertura-soft); }
+.turno-chip.turno-mid { color: var(--intermediario); background: var(--intermediario-soft); }
+.turno-chip.turno-close { color: var(--fechamento); background: var(--fechamento-soft); }
+.turno-legend { display: flex; flex-wrap: wrap; gap: 8px 15px; margin-bottom: 14px; padding: 0 3px; }
+.turno-legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; font-weight: 750; }
+.turno-legend i { width: 11px; height: 11px; border-radius: 4px; }
+.turno-legend .turno-open i { background: var(--abertura); }
+.turno-legend .turno-mid i { background: var(--intermediario); }
+.turno-legend .turno-close i { background: var(--fechamento); }
 .drag-handle {
   position: absolute;
   top: 50%;
@@ -768,6 +799,15 @@ textarea { min-height: 88px; resize: vertical; }
 }
 .month-event.confirmada { color: #246686; background: #e8f3f8; }
 .month-event.realizada { color: #287454; background: #e7f4ed; }
+.month-event.turno-open { color: var(--abertura); background: var(--abertura-soft); }
+.month-event.turno-mid { color: var(--intermediario); background: var(--intermediario-soft); }
+.month-event.turno-close { color: var(--fechamento); background: var(--fechamento-soft); }
+.lead-badge {
+  width: fit-content; margin-top: 2px; padding: 3px 7px; border-radius: 99px;
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 8px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--orange-dark); background: var(--orange-soft);
+}
 .month-event span { width: 17px; height: 17px; flex: 0 0 auto; border-radius: 5px; display: grid; place-items: center; color: inherit; background: rgba(255,255,255,.7); font-size: 6px; }
 .month-day small { display: block; margin-top: 5px; color: var(--muted); font-size: 8px; text-align: center; }
 .month-add {
