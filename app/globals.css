@@ -48,7 +48,8 @@ button { cursor: pointer; }
   flex-direction: column;
   padding: 28px 18px 20px;
   color: #fff;
-  background: var(--sidebar);
+  background: linear-gradient(185deg, #2b241f 0%, #201a16 100%);
+  border-right: 1px solid rgba(255, 255, 255, .05);
 }
 .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 30px; }
 .brand-mark {
@@ -58,21 +59,21 @@ button { cursor: pointer; }
   box-shadow: 0 6px 18px rgba(224, 78, 35, .28);
 }
 .brand strong { display: block; font-size: 18px; letter-spacing: -.4px; }
-.brand small, .store-card small, .profile small { display: block; margin-top: 3px; color: #a9acae; font-size: 11px; }
+.brand small, .store-card small, .profile small { display: block; margin-top: 3px; color: #b3a99e; font-size: 11px; }
 .sidebar nav { display: grid; gap: 6px; }
 .sidebar nav button {
   width: 100%; border: 0; border-radius: 11px; padding: 13px 14px;
   display: flex; align-items: center; gap: 13px;
-  color: #c7c9cb; background: transparent; text-align: left; font-size: 14px; font-weight: 650;
+  color: #cec5bb; background: transparent; text-align: left; font-size: 14px; font-weight: 650;
   transition: .18s ease;
 }
 .sidebar nav button span { width: 21px; font-size: 19px; text-align: center; opacity: .8; }
-.sidebar nav button:hover { color: #fff; background: #2f3235; }
-.sidebar nav button.active { color: #fff; background: #36393c; box-shadow: inset 3px 0 var(--orange); }
-.sidebar nav button.active span { color: #ff754c; opacity: 1; }
+.sidebar nav button:hover { color: #fff; background: rgba(255, 255, 255, .06); }
+.sidebar nav button.active { color: #fff; background: linear-gradient(90deg, rgba(226, 72, 28, .24), rgba(226, 72, 28, .05)); box-shadow: inset 3px 0 var(--orange); }
+.sidebar nav button.active span { color: #ff8a5c; opacity: 1; }
 .store-card {
   margin-top: auto; padding: 15px 12px; border-radius: 13px; display: flex; align-items: center; gap: 10px;
-  background: #2b2e30; border: 1px solid #373a3d;
+  background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .07);
 }
 .store-card strong, .profile strong { display: block; font-size: 12px; }
 .store-icon {
@@ -145,7 +146,7 @@ textarea { min-height: 88px; resize: vertical; }
 .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 15px; margin-bottom: 18px; }
 .kpi-card {
   min-height: 143px; padding: 20px; border: 1px solid var(--line); border-radius: 15px;
-  background: var(--paper); box-shadow: 0 4px 14px rgba(35,37,38,.035);
+  background: var(--paper); box-shadow: 0 4px 14px rgba(60,40,24,.06);
 }
 .kpi-card.accent { color: #fff; border-color: var(--orange); background: linear-gradient(145deg, #e85a2e, #c83d17); box-shadow: 0 12px 24px rgba(224,78,35,.2); }
 .kpi-label { display: block; margin-bottom: 18px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
@@ -157,7 +158,7 @@ textarea { min-height: 88px; resize: vertical; }
 .kpi-card p { margin: 16px 0 0; color: var(--muted); font-size: 11px; }
 
 .dashboard-grid { display: grid; grid-template-columns: 1.55fr 1fr; gap: 18px; margin-bottom: 18px; }
-.panel { border: 1px solid var(--line); border-radius: 15px; background: var(--paper); box-shadow: 0 5px 18px rgba(35,37,38,.035); }
+.panel { border: 1px solid var(--line); border-radius: 15px; background: var(--paper); box-shadow: 0 5px 18px rgba(60,40,24,.06); }
 .trend-panel, .ranking-panel { min-height: 366px; padding: 21px; }
 .panel-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
 .panel-heading h2 { margin: 0; font-size: 15px; letter-spacing: -.2px; }
@@ -199,7 +200,7 @@ textarea { min-height: 88px; resize: vertical; }
 .toolbar-summary strong { font-size: 20px; }
 .toolbar-summary span { color: var(--muted); font-size: 11px; }
 .report-list { display: grid; gap: 18px; }
-.report-card { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: #fff; box-shadow: 0 5px 18px rgba(35,37,38,.035); }
+.report-card { overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: #fff; box-shadow: 0 5px 18px rgba(60,40,24,.06); }
 .report-top { padding: 20px 22px; display: flex; justify-content: space-between; gap: 20px; background: #fcfcfb; border-bottom: 1px solid var(--line); }
 .report-date { color: var(--orange); font-size: 10px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; }
 .report-top h2 { margin: 6px 0 3px; font-size: 17px; }

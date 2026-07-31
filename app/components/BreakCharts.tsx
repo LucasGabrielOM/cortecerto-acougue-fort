@@ -15,7 +15,7 @@ import {
   YAxis,
 } from "recharts";
 
-const COLORS = ["#e9562d", "#f4a340", "#4e8e78", "#5578ae", "#8d62b5", "#d36a8f"];
+const COLORS = ["#e2481c", "#ef8a3c", "#0e8c74", "#3d53a8", "#b8790a", "#b5487f"];
 
 const weight = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 3,
@@ -54,34 +54,39 @@ export function BreakTrendChart({
         <AreaChart data={data} margin={{ top: 12, right: 12, left: -10, bottom: 0 }}>
           <defs>
             <linearGradient id="breakArea" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#e9562d" stopOpacity={0.32} />
-              <stop offset="92%" stopColor="#e9562d" stopOpacity={0.015} />
+              <stop offset="0%" stopColor="#e2481c" stopOpacity={0.34} />
+              <stop offset="55%" stopColor="#ef8a3c" stopOpacity={0.12} />
+              <stop offset="95%" stopColor="#ef8a3c" stopOpacity={0.01} />
+            </linearGradient>
+            <linearGradient id="breakStroke" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#e2481c" />
+              <stop offset="100%" stopColor="#f0872f" />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="#ece9e4" strokeDasharray="4 5" vertical={false} />
+          <CartesianGrid stroke="#efe7db" strokeDasharray="4 6" vertical={false} />
           <XAxis
             dataKey="label"
             axisLine={false}
             tickLine={false}
             minTickGap={18}
-            tick={{ fill: "#898681", fontSize: 11 }}
+            tick={{ fill: "#9a8f83", fontSize: 11 }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
             width={52}
-            tick={{ fill: "#898681", fontSize: 11 }}
+            tick={{ fill: "#9a8f83", fontSize: 11 }}
             tickFormatter={(value) => `${Number(value).toFixed(0)} kg`}
           />
-          <Tooltip content={<ChartTooltip />} cursor={{ stroke: "#e9562d", strokeDasharray: "4 4" }} />
+          <Tooltip content={<ChartTooltip />} cursor={{ stroke: "#e2481c", strokeDasharray: "4 4" }} />
           <Area
             type="monotone"
             dataKey="value"
-            stroke="#e9562d"
-            strokeWidth={3}
+            stroke="url(#breakStroke)"
+            strokeWidth={3.5}
             fill="url(#breakArea)"
-            activeDot={{ r: 6, fill: "#ffffff", stroke: "#e9562d", strokeWidth: 3 }}
-            dot={{ r: 2.5, fill: "#ffffff", stroke: "#e9562d", strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: "#ffffff", stroke: "#e2481c", strokeWidth: 3 }}
+            dot={{ r: 2.5, fill: "#ffffff", stroke: "#e2481c", strokeWidth: 2 }}
             animationDuration={800}
           />
         </AreaChart>
@@ -116,10 +121,12 @@ export function BreakDistributionChart({
               data={visible}
               dataKey="kg"
               nameKey="name"
-              innerRadius="58%"
-              outerRadius="82%"
-              paddingAngle={3}
-              cornerRadius={5}
+              innerRadius="60%"
+              outerRadius="84%"
+              paddingAngle={2}
+              cornerRadius={6}
+              stroke="#fffdfa"
+              strokeWidth={2.5}
             >
               {visible.map((entry, index) => (
                 <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
@@ -156,13 +163,19 @@ export function ProductBars({
   return (
     <div className="interactive-chart product-bars">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={visible} layout="vertical" margin={{ top: 8, right: 16, left: 6, bottom: 0 }}>
-          <CartesianGrid stroke="#eeece8" strokeDasharray="4 5" horizontal={false} />
+        <BarChart data={visible} layout="vertical" margin={{ top: 8, right: 16, left: 6, bottom: 0 }} barCategoryGap="28%">
+          <defs>
+            <linearGradient id="barFill" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#e2481c" />
+              <stop offset="100%" stopColor="#f4a340" />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="#efe7db" strokeDasharray="4 6" horizontal={false} />
           <XAxis
             type="number"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: "#898681", fontSize: 11 }}
+            tick={{ fill: "#9a8f83", fontSize: 11 }}
             tickFormatter={(value) => `${Number(value).toFixed(0)} kg`}
           />
           <YAxis
@@ -174,8 +187,8 @@ export function ProductBars({
             tick={{ fill: "#4a4946", fontSize: 11 }}
             tickFormatter={(value) => String(value).slice(0, 22)}
           />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: "#f6f3ee" }} />
-          <Bar dataKey="kg" fill="#e9562d" radius={[0, 7, 7, 0]} animationDuration={750} />
+          <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(226,72,28,.06)" }} />
+          <Bar dataKey="kg" fill="url(#barFill)" radius={[0, 8, 8, 0]} background={{ fill: "#f4ede3", radius: 8 }} animationDuration={750} />
         </BarChart>
       </ResponsiveContainer>
     </div>
